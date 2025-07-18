@@ -1,0 +1,27 @@
+{
+  "name": "matchnow-admin-web",
+  "version": "1.0.0",
+  "description": "MatchNow 관리자 웹 애플리케이션",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "http-server dist -p 3000 -c-1",
+    "start:dev": "npm run dev",
+    "start:prod": "npm run serve",
+    "deploy:dev": "npm run build && npm run serve",
+    "deploy:prod": "npm run build && pm2 start ecosystem.config.js --env production"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "http-server": "^14.1.1",
+    "pm2": "^5.3.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "keywords": ["matchnow", "admin", "sports", "management"],
+  "author": "MatchNow Team",
+  "license": "MIT"
+}

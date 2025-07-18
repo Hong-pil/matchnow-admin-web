@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MatchNow</title>
+    
+    <!-- 🚨 긴급 인증 체크 (가장 먼저 실행) -->
+    <script>
+        (function() {
+            console.log('🚨 긴급 인증 체크 시작');
+            const token = localStorage.getItem('adminToken');
+            console.log('토큰 상태:', token ? 'EXISTS' : 'NOT_FOUND');
+            
+            if (!token) {
+                console.log('❌ 토큰 없음 - 로그인 페이지로 리다이렉트');
+                window.location.href = '/admin/login.html';
+                return;
+            }
+            console.log('✅ 토큰 존재 - 메인 페이지 계속');
+        })();
+    </script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚽ MatchNow</h1>
+            <p>스포츠 매칭 관리 시스템</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" id="tab-dashboard">대시보드</button>
+            <button class="nav-tab" id="tab-football-schedule">축구경기일정</button>
+            <button class="nav-tab" id="tab-countries">국가</button>
+            <button class="nav-tab" id="tab-sports">스포츠 카테고리</button>
+            <button class="nav-tab" id="tab-leagues">리그</button>
+            <button class="nav-tab" id="tab-teams">팀</button>
+            <button class="nav-tab" id="tab-players">선수</button>
+        </div>
+
+        <!-- 각 탭의 컨텐츠가 동적으로 로드될 영역 -->
+        <div id="content-area"></div>
+    </div>
+
+    <!-- 공통 JavaScript 파일들 -->
+    <script src="js/common/config.js"></script>
+    <script src="js/common/utils.js"></script>
+    <script src="js/common/api.js"></script>
+    <script src="js/tabs/dashboard.js"></script>
+    <script src="js/tabs/football-schedule.js"></script>
+    <script src="js/tabs/countries.js"></script>
+    <script src="js/tabs/sports-categories.js"></script>
+    <script src="js/tabs/leagues.js"></script>
+    <script src="js/tabs/teams.js"></script>
+    <script src="js/tabs/players.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

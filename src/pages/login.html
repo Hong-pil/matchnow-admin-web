@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MatchNow 관리자 로그인</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .success-message {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .register-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* 사용자 정보 표시 스타일 */
+        .user-info-container {
+            text-align: right;
+            margin-top: 10px;
+        }
+
+        .user-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .user-role {
+            color: #667eea;
+            font-size: 0.8em;
+        }
+
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 0.8em;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #667eea;
+            color: #667eea;
+        }
+
+        .btn-outline:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .logout-container {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+/* 사용자 정보 표시 스타일 */
+.user-info-container {
+    text-align: right;
+    margin-top: 10px;
+}
+
+.user-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 0.9em;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.user-role {
+    color: #667eea;
+    font-size: 0.8em;
+}
+
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 0.8em;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 2px solid #667eea;
+    color: #667eea;
+}
+
+.btn-outline:hover {
+    background: #667eea;
+    color: white;
+}
+
+.logout-container {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.user-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.user-status span {
+    font-weight: 600;
+    color: #333;
+}
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>⚽ MatchNow</h1>
+            <p>관리자 로그인</p>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">이메일</label>
+                <input type="email" id="email" class="form-control" placeholder="admin@matchnow.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">비밀번호</label>
+                <input type="password" id="password" class="form-control" placeholder="비밀번호를 입력하세요" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="loginBtn">
+                로그인
+            </button>
+
+            <div id="loading" class="loading">
+                로그인 중...
+            </div>
+        </form>
+
+        <div class="register-link">
+            <a href="register.html">관리자 계정이 없으신가요? 회원가입</a>
+        </div>
+    </div>
+
+    <script>
+        // API 설정
+        const API_BASE_URL = (() => {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return `${protocol}//${hostname}:4011/api/v1`;
+            }
+            
+            return `${protocol}//${hostname}${port && port !== '80' && port !== '443' ? ':' + port : ''}/api/v1`;
+        })();
+
+        const api = axios.create({
+            baseURL: API_BASE_URL,
+            timeout: 10000,
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        // 메시지 표시 함수
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            const successEl = document.getElementById('successMessage');
+            successEl.style.display = 'none';
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            const errorEl = document.getElementById('errorMessage');
+            const successEl = document.getElementById('successMessage');
+            errorEl.style.display = 'none';
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // 로딩 상태 관리
+        function setLoading(isLoading) {
+            const loginBtn = document.getElementById('loginBtn');
+            const loading = document.getElementById('loading');
+            
+            if (isLoading) {
+                loginBtn.disabled = true;
+                loginBtn.textContent = '로그인 중...';
+                loading.style.display = 'block';
+            } else {
+                loginBtn.disabled = false;
+                loginBtn.textContent = '로그인';
+                loading.style.display = 'none';
+            }
+        }
+
+        // 로그인 폼 처리
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+            setLoading(true);
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!email || !password) {
+                showError('이메일과 비밀번호를 모두 입력해주세요.');
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const response = await api.post('/admin/auth/login', {
+                    email,
+                    password
+                });
+
+                if (response.data.success) {
+                    const { accessToken, user } = response.data.data;
+                    
+                    // 토큰 저장
+                    localStorage.setItem('adminToken', accessToken);
+                    localStorage.setItem('adminUser', JSON.stringify(user));
+                    
+                    showSuccess('로그인 성공! 관리자 페이지로 이동합니다...');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/admin/';
+                    }, 1500);
+                } else {
+                    showError(response.data.message || '로그인에 실패했습니다.');
+                }
+            } catch (error) {
+                console.error('로그인 에러:', error);
+                
+                if (error.response?.status === 401) {
+                    showError('이메일 또는 비밀번호가 잘못되었습니다.');
+                } else if (error.response?.status === 429) {
+                    showError('로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.');
+                } else if (error.response?.data?.message) {
+                    showError(error.response.data.message);
+                } else if (error.code === 'ECONNABORTED') {
+                    showError('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
+                } else {
+                    showError('서버 연결에 실패했습니다. 관리자에게 문의해주세요.');
+                }
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // 페이지 로드 시 토큰 확인
+        window.addEventListener('load', async () => {
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                console.log('🔍 기존 토큰 발견 - 유효성 검사 중...');
+                
+                // 토큰 유효성 검사
+                try {
+                    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                    const response = await api.get('/admin/auth/profile');
+                    
+                    if (response.data.success) {
+                        console.log('✅ 유효한 토큰 - 메인 페이지로 리다이렉트');
+                        window.location.href = '/admin/';
+                    }
+                } catch (error) {
+                    console.warn('❌ 무효한 토큰 - 제거');
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminUser');
+                }
+            }
+        });
+
+        // Enter 키 처리
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

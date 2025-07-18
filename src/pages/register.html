@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MatchNow 관리자 회원가입</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .register-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .register-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .register-header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .register-header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .success-message {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .login-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+
+        .password-requirements {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .password-requirements ul {
+            margin: 5px 0 0 20px;
+        }
+
+        .password-requirements li {
+            margin: 2px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="register-header">
+            <h1>⚽ MatchNow</h1>
+            <p>관리자 회원가입</p>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="email">이메일 *</label>
+                <input type="email" id="email" class="form-control" placeholder="admin@matchnow.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="name">이름 *</label>
+                <input type="text" id="name" class="form-control" placeholder="홍길동" required>
+            </div>
+
+            <div class="form-group">
+                <label for="role">권한 *</label>
+                <select id="role" class="form-select" required>
+                    <option value="">권한을 선택하세요</option>
+                    <option value="moderator">운영자 (Moderator)</option>
+                    <option value="admin">관리자 (Admin)</option>
+                    <option value="super_admin">슈퍼 관리자 (Super Admin)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="password">비밀번호 *</label>
+                <input type="password" id="password" class="form-control" placeholder="비밀번호를 입력하세요" required>
+                <div class="password-requirements">
+                    <strong>비밀번호 요구사항:</strong>
+                    <ul>
+                        <li>최소 8자 이상</li>
+                        <li>영문, 숫자, 특수문자 조합 권장</li>
+                        <li>안전한 비밀번호로 설정해주세요</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">비밀번호 확인 *</label>
+                <input type="password" id="confirmPassword" class="form-control" placeholder="비밀번호를 다시 입력하세요" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="registerBtn">
+                회원가입
+            </button>
+
+            <div id="loading" class="loading">
+                계정 생성 중...
+            </div>
+        </form>
+
+        <div class="login-link">
+            <a href="login.html">이미 계정이 있으신가요? 로그인</a>
+        </div>
+    </div>
+
+    <script>
+        // API 설정
+        const API_BASE_URL = (() => {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return `${protocol}//${hostname}:4011/api/v1`;
+            }
+            
+            return `${protocol}//${hostname}${port && port !== '80' && port !== '443' ? ':' + port : ''}/api/v1`;
+        })();
+
+        const api = axios.create({
+            baseURL: API_BASE_URL,
+            timeout: 10000,
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        // 메시지 표시 함수
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            const successEl = document.getElementById('successMessage');
+            successEl.style.display = 'none';
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            const errorEl = document.getElementById('errorMessage');
+            const successEl = document.getElementById('successMessage');
+            errorEl.style.display = 'none';
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // 로딩 상태 관리
+        function setLoading(isLoading) {
+            const registerBtn = document.getElementById('registerBtn');
+            const loading = document.getElementById('loading');
+            
+            if (isLoading) {
+                registerBtn.disabled = true;
+                registerBtn.textContent = '계정 생성 중...';
+                loading.style.display = 'block';
+            } else {
+                registerBtn.disabled = false;
+                registerBtn.textContent = '회원가입';
+                loading.style.display = 'none';
+            }
+        }
+
+        // 폼 유효성 검사
+        function validateForm() {
+            const email = document.getElementById('email').value.trim();
+            const name = document.getElementById('name').value.trim();
+            const role = document.getElementById('role').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (!email || !name || !role || !password || !confirmPassword) {
+                showError('모든 필수 항목을 입력해주세요.');
+                return false;
+            }
+
+            if (password.length < 8) {
+                showError('비밀번호는 최소 8자 이상이어야 합니다.');
+                return false;
+            }
+
+            if (password !== confirmPassword) {
+                showError('비밀번호가 일치하지 않습니다.');
+                return false;
+            }
+
+            return true;
+        }
+
+        // 회원가입 폼 처리
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+
+            if (!validateForm()) {
+                return;
+            }
+
+            setLoading(true);
+
+            const email = document.getElementById('email').value.trim();
+            const name = document.getElementById('name').value.trim();
+            const role = document.getElementById('role').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await api.post('/admin/auth/register', {
+                    email,
+                    name,
+                    role,
+                    password
+                });
+
+                if (response.data.success) {
+                    showSuccess('회원가입이 완료되었습니다! 로그인 페이지로 이동합니다...');
+                    
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                } else {
+                    showError(response.data.message || '회원가입에 실패했습니다.');
+                }
+            } catch (error) {
+                console.error('회원가입 에러:', error);
+                
+                if (error.response?.status === 409) {
+                    showError('이미 등록된 이메일입니다.');
+                } else if (error.response?.status === 400) {
+                    const message = error.response.data.message;
+                    if (Array.isArray(message)) {
+                        showError(message.join('\n'));
+                    } else {
+                        showError(message || '입력 정보를 확인해주세요.');
+                    }
+                } else if (error.response?.data?.message) {
+                    showError(error.response.data.message);
+                } else if (error.code === 'ECONNABORTED') {
+                    showError('요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.');
+                } else {
+                    showError('서버 연결에 실패했습니다. 관리자에게 문의해주세요.');
+                }
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // 비밀번호 확인 실시간 검증
+        document.getElementById('confirmPassword').addEventListener('input', (e) => {
+            const password = document.getElementById('password').value;
+            const confirmPassword = e.target.value;
+            
+            if (confirmPassword && password !== confirmPassword) {
+                e.target.style.borderColor = '#ff6b6b';
+            } else {
+                e.target.style.borderColor = '#e1e8ed';
+            }
+        });
+
+        // 페이지 로드 시 토큰 확인
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                // 이미 로그인된 상태라면 메인 페이지로 리다이렉트
+                window.location.href = '/admin/';
+            }
+        });
+    </script>
+</body>
+</html>
