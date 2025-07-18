@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
-<!DOCTYPE html>
-<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MatchNow</title>
+    <title>MatchNow 관리자</title>
     
     <!-- 🚨 긴급 인증 체크 (가장 먼저 실행) -->
     <script>
@@ -16,7 +14,7 @@
             
             if (!token) {
                 console.log('❌ 토큰 없음 - 로그인 페이지로 리다이렉트');
-                window.location.href = '/admin/login.html';
+                window.location.href = '/admin/pages/login.html';
                 return;
             }
             console.log('✅ 토큰 존재 - 메인 페이지 계속');
@@ -24,7 +22,8 @@
     </script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
-    <link rel="stylesheet" href="css/styles.css">
+    <!-- 경로 수정: /admin/pages/css/ → /admin/styles/css/ -->
+    <link rel="stylesheet" href="/admin/styles/css/styles.css">
 </head>
 <body>
     <div class="container">
@@ -47,17 +46,17 @@
         <div id="content-area"></div>
     </div>
 
-    <!-- 공통 JavaScript 파일들 -->
-    <script src="js/common/config.js"></script>
-    <script src="js/common/utils.js"></script>
-    <script src="js/common/api.js"></script>
-    <script src="js/tabs/dashboard.js"></script>
-    <script src="js/tabs/football-schedule.js"></script>
-    <script src="js/tabs/countries.js"></script>
-    <script src="js/tabs/sports-categories.js"></script>
-    <script src="js/tabs/leagues.js"></script>
-    <script src="js/tabs/teams.js"></script>
-    <script src="js/tabs/players.js"></script>
-    <script src="js/main.js"></script>
+    <!-- 경로 수정: /admin/pages/js/ → /admin/js/ -->
+    <script src="/admin/js/common/config.js"></script>
+    <script src="/admin/js/common/utils.js"></script>
+    <script src="/admin/js/common/api.js"></script>
+    <script src="/admin/js/tabs/dashboard.js"></script>
+    <script src="/admin/js/tabs/football-schedule.js"></script>
+    <script src="/admin/js/tabs/countries.js"></script>
+    <script src="/admin/js/tabs/sports-categories.js"></script>
+    <script src="/admin/js/tabs/leagues.js"></script>
+    <script src="/admin/js/tabs/teams.js"></script>
+    <script src="/admin/js/tabs/players.js"></script>
+    <script src="/admin/js/main.js"></script>
 </body>
 </html>
