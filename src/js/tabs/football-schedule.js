@@ -1,4 +1,4 @@
-// src/js/tabs/football-schedule.js (통합 동기화 버전)
+// src/js/tabs/football-schedule.js (수정된 버전 - 동기화 버튼 및 토글 로직 개선)
 const FootballSchedule = {
     // 현재 선택된 날짜 상태
     currentDate: new Date(),
@@ -6,7 +6,7 @@ const FootballSchedule = {
     // 수정 중인 경기 ID
     editingMatchId: null,
 
-    // 축구 경기 일정 HTML 템플릿 (통합 동기화 버전)
+    // 축구 경기 일정 HTML 템플릿 (수정된 버전)
     template: `
         <div class="content-panel">
             <h2>⚽ 축구 경기 일정 (통합 동기화)</h2>
@@ -36,14 +36,14 @@ const FootballSchedule = {
 
             <div class="controls">
                 <button class="btn btn-primary" id="refreshMatchesBtn">🔄 새로고침</button>
-                <button class="btn btn-success" id="syncBtn">🔄 선택 경기 동기화</button>
+                <button class="btn btn-success" id="syncBtn">🔄 동기화</button>
                 <button class="btn btn-info" id="dbStatsBtn">📊 DB 통계</button>
                 <button class="btn btn-secondary" id="completenessBtn">📈 데이터 완성도</button>
                 <button class="btn btn-purple" id="highQualityBtn">🌟 고품질 경기</button>
                 <div class="sync-controls">
-                    <button class="btn btn-sm btn-outline" id="selectAllSyncBtn">모두 선택</button>
-                    <button class="btn btn-sm btn-outline" id="deselectAllSyncBtn">모두 해제</button>
-                    <span id="selectedCount" class="selected-count">선택된 경기: 0개</span>
+                    <button class="btn btn-sm btn-outline" id="selectAllSyncBtn">모두 허용</button>
+                    <button class="btn btn-sm btn-outline" id="deselectAllSyncBtn">모두 차단</button>
+                    <span id="selectedCount" class="selected-count">동기화 허용: 0개</span>
                 </div>
             </div>
 
@@ -130,7 +130,7 @@ const FootballSchedule = {
 
     // 렌더링
     async render() {
-        console.log('⚽ 축구 경기 일정 로드 (통합 동기화 버전)');
+        console.log('⚽ 축구 경기 일정 로드 (수정된 동기화 버전)');
         
         Utils.renderContent(this.template);
         
@@ -146,7 +146,7 @@ const FootballSchedule = {
         await this.loadMatches();
     },
 
-    // 이벤트 리스너 등록 (통합 동기화 버전)
+    // 이벤트 리스너 등록 (수정된 버전)
     attachEventListeners() {
         // 기존 탭 이벤트
         document.getElementById('upcoming-tab').addEventListener('click', () => this.switchMatchType('upcoming'));
@@ -154,15 +154,15 @@ const FootballSchedule = {
         document.getElementById('ended-tab').addEventListener('click', () => this.switchMatchType('ended'));
         document.getElementById('refreshMatchesBtn').addEventListener('click', () => this.loadMatches());
         
-        // 통합 동기화 버튼
-        document.getElementById('syncBtn').addEventListener('click', () => this.syncSelectedMatches());
+        // 🔧 수정: 동기화 버튼 이벤트 리스너
+        document.getElementById('syncBtn').addEventListener('click', () => this.performSync());
         
         // 기존 버튼들
         document.getElementById('dbStatsBtn').addEventListener('click', () => this.showDbStats());
         document.getElementById('completenessBtn').addEventListener('click', () => this.showDataCompleteness());
         document.getElementById('highQualityBtn').addEventListener('click', () => this.showHighQualityMatches());
         
-        // 선택 관련 버튼들
+        // 선택 관련 버튼들 (수정된 텍스트)
         document.getElementById('selectAllSyncBtn').addEventListener('click', () => this.selectAllMatches());
         document.getElementById('deselectAllSyncBtn').addEventListener('click', () => this.deselectAllMatches());
         
@@ -187,7 +187,7 @@ const FootballSchedule = {
         });
     },
 
-    // 데이터 상태 체크
+    // 🔧 수정: 데이터 상태 체크 (null 처리)
     async checkDataStatus() {
         try {
             const response = await CONFIG.api.get('/enhanced-football/check/sync-needed');
@@ -205,6 +205,10 @@ const FootballSchedule = {
                 statusIcon = '⚠️';
             }
             
+            // 🔧 수정: completeness가 null인 경우 처리
+            const completeness = data.completeness || 0;
+            const totalMatches = data.dbStats?.total || 0;
+            
             banner.className = `data-status-banner ${statusClass}`;
             banner.innerHTML = `
                 <div class="status-info">
@@ -212,16 +216,125 @@ const FootballSchedule = {
                     <div class="status-details">
                         <strong>데이터 상태:</strong> ${data.recommendation}
                         <br>
-                        <small>완성도: ${data.completeness}% | 총 경기: ${data.dbStats.total}개</small>
+                        <small>완성도: ${completeness}% | 총 경기: ${totalMatches}개</small>
                     </div>
                 </div>
             `;
         } catch (error) {
             console.error('경기 정보 로드 실패:', error);
-            Utils.showError('경기 정보를 불러올 수 없습니다.');
+            
+            // 🔧 수정: 에러 발생 시 기본 메시지 표시
+            const banner = document.getElementById('dataStatusBanner');
+            banner.className = 'data-status-banner warning';
+            banner.innerHTML = `
+                <div class="status-info">
+                    <span class="status-icon">⚠️</span>
+                    <div class="status-details">
+                        <strong>데이터 상태:</strong> 상태 확인 중 오류 발생
+                        <br>
+                        <small>동기화 버튼을 눌러 데이터를 가져오세요</small>
+                    </div>
+                </div>
+            `;
         }
     },
 
+    // 🆕 새로운 동기화 메서드
+    async performSync() {
+        console.log('🔄 동기화 시작');
+        
+        const syncBtn = document.getElementById('syncBtn');
+        const originalText = syncBtn.textContent;
+        
+        try {
+            // 버튼 비활성화 및 로딩 표시
+            syncBtn.disabled = true;
+            syncBtn.textContent = '🔄 동기화 중...';
+            
+            // 현재 탭과 날짜에 따른 동기화 실행
+            const currentType = CONFIG.state.currentMatchType || 'upcoming';
+            const currentDay = this.formatDateForAPI(this.currentDate);
+            
+            console.log(`📅 동기화 대상: ${currentType}, 날짜: ${currentDay}`);
+            
+            // Enhanced API를 통해 자동 동기화 실행
+            const response = await CONFIG.api.post(`/enhanced-football/sync/auto/${currentType}`, null, {
+                params: { day: currentDay }
+            });
+            
+            if (response.data.success) {
+                const result = response.data.data;
+                Utils.showSuccess(`동기화 완료! 생성: ${result.created}개, 업데이트: ${result.updated}개`);
+                
+                // 상태 및 데이터 새로고침
+                await this.checkDataStatus();
+                await this.loadMatches();
+            }
+            
+        } catch (error) {
+            console.error('동기화 실패:', error);
+            Utils.showError(`동기화 실패: ${error.response?.data?.message || error.message}`);
+        } finally {
+            // 버튼 원상복구
+            syncBtn.disabled = false;
+            syncBtn.textContent = originalText;
+        }
+    },
+
+    // 🔧 수정: 동기화 허용 상태 업데이트 (토글 로직)
+    async updateSyncAllowed(matchId, allowed) {
+        try {
+            if (!matchId.startsWith('6')) { // BetsAPI ID인 경우 (MongoDB ObjectId가 아닌 경우)
+                console.log(`BetsAPI 경기 ${matchId}의 동기화 허용 상태: ${allowed}`);
+                // BetsAPI 경기는 메모리에서만 관리 (실제 저장되지 않음)
+                return;
+            }
+
+            // MongoDB에 저장된 경기인 경우
+            await CONFIG.api.patch(`/football-matches/${matchId}`, {
+                allowSync: allowed
+            });
+            
+            console.log(`경기 ${matchId}의 동기화 허용 상태 업데이트: ${allowed}`);
+            this.updateSelectedCount();
+        } catch (error) {
+            console.error('동기화 허용 상태 업데이트 실패:', error);
+            Utils.showError('동기화 허용 상태 업데이트에 실패했습니다.');
+        }
+    },
+
+    // 🔧 수정: 모든 경기 선택 (텍스트 변경)
+    selectAllMatches() {
+        const checkboxes = document.querySelectorAll('.sync-toggle-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+            this.updateSyncAllowed(checkbox.dataset.matchId, true);
+        });
+        this.updateSelectedCount();
+    },
+
+    // 🔧 수정: 모든 경기 선택 해제 (텍스트 변경)
+    deselectAllMatches() {
+        const checkboxes = document.querySelectorAll('.sync-toggle-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            this.updateSyncAllowed(checkbox.dataset.matchId, false);
+        });
+        this.updateSelectedCount();
+    },
+
+    // 🔧 수정: 선택된 경기 수 업데이트 (텍스트 변경)
+    updateSelectedCount() {
+        const selectedCheckboxes = document.querySelectorAll('.sync-toggle-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        const selectedCountEl = document.getElementById('selectedCount');
+        if (selectedCountEl) {
+            selectedCountEl.textContent = `동기화 허용: ${count}개`;
+        }
+    },
+
+    // 기존 메서드들은 그대로 유지...
+    
     // 상세 통계 모달 표시
     async showDetailedStats(matchId) {
         try {
@@ -374,7 +487,7 @@ const FootballSchedule = {
 • xG 없음: ${completeness.missing_fields.xg}개
 • 점유율 없음: ${completeness.missing_fields.possession_rt}개
 
-💡 권장사항: ${completeness.completeness_percentage < 80 ? '선택 동기화를 실행하여 필요한 경기만 업데이트하세요.' : '데이터가 충분히 완전합니다!'}`;
+💡 권장사항: ${completeness.completeness_percentage < 80 ? '동기화를 실행하여 필요한 데이터를 업데이트하세요.' : '데이터가 충분히 완전합니다!'}`;
 
             alert(completenessText);
         } catch (error) {
@@ -396,7 +509,7 @@ const FootballSchedule = {
 🔸 종료 경기: ${stats.ended}개
 🔸 총 경기 수: ${stats.total}개
 
-💡 동기화: 개별 경기의 '동기화 허용' 토글로 선택적 업데이트 가능`);
+💡 동기화: 각 경기의 '동기화 허용' 토글로 선택적 업데이트 가능`);
         } catch (error) {
             Utils.showError('DB 통계를 불러올 수 없습니다.');
         }
@@ -437,7 +550,7 @@ const FootballSchedule = {
             
             if (response.data.success) {
                 Utils.showSuccess('경기가 삭제되었습니다.');
-                await this.loadMatches(); // 새로고침
+                await this.loadMatches();
             }
         } catch (error) {
             console.error('경기 삭제 실패:', error);
@@ -465,14 +578,14 @@ const FootballSchedule = {
                 bet365_id: match.bet365_id,
                 round: match.round,
                 status: 'active',
-                allowSync: true, // 🆕 기본값으로 동기화 허용
+                allowSync: true, // 기본값으로 동기화 허용
             };
             
             const saveResponse = await CONFIG.api.post('/football-matches', saveData);
             
             if (saveResponse.data.success) {
                 Utils.showSuccess('경기가 저장되었습니다.');
-                await this.loadMatches(); // 새로고침
+                await this.loadMatches();
             }
         } catch (error) {
             console.error('로컬 저장 실패:', error);
@@ -809,110 +922,9 @@ ${match.adminNote ? `\n📝 관리자 노트: ${match.adminNote}` : ''}
         return '';
     },
 
-    // 동기화 허용 상태 업데이트
-    async updateSyncAllowed(matchId, allowed) {
-        try {
-            if (!matchId.startsWith('6')) { // BetsAPI ID인 경우 (MongoDB ObjectId가 아닌 경우)
-                console.log(`BetsAPI 경기 ${matchId}의 동기화 허용 상태: ${allowed}`);
-                // BetsAPI 경기는 메모리에서만 관리
-                return;
-            }
-
-            // MongoDB에 저장된 경기인 경우
-            await CONFIG.api.patch(`/football-matches/${matchId}`, {
-                allowSync: allowed
-            });
-            
-            console.log(`경기 ${matchId}의 동기화 허용 상태 업데이트: ${allowed}`);
-            this.updateSelectedCount();
-        } catch (error) {
-            console.error('동기화 허용 상태 업데이트 실패:', error);
-            Utils.showError('동기화 허용 상태 업데이트에 실패했습니다.');
-        }
-    },
-
-    // 모든 경기 선택
-    selectAllMatches() {
-        const checkboxes = document.querySelectorAll('.sync-toggle-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = true;
-            this.updateSyncAllowed(checkbox.dataset.matchId, true);
-        });
-        this.updateSelectedCount();
-    },
-
-    // 모든 경기 선택 해제
-    deselectAllMatches() {
-        const checkboxes = document.querySelectorAll('.sync-toggle-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = false;
-            this.updateSyncAllowed(checkbox.dataset.matchId, false);
-        });
-        this.updateSelectedCount();
-    },
-
-    // 선택된 경기 수 업데이트
-    updateSelectedCount() {
-        const selectedCheckboxes = document.querySelectorAll('.sync-toggle-checkbox:checked');
-        const count = selectedCheckboxes.length;
-        const selectedCountEl = document.getElementById('selectedCount');
-        if (selectedCountEl) {
-            selectedCountEl.textContent = `선택된 경기: ${count}개`;
-        }
-        
-        // 동기화 버튼 상태 업데이트
-        const syncBtn = document.getElementById('syncBtn');
-        if (syncBtn) {
-            syncBtn.disabled = count === 0;
-            syncBtn.textContent = count === 0 ? '🔄 선택 경기 동기화' : `🔄 선택된 ${count}개 경기 동기화`;
-        }
-    },
-
-    // 선택된 경기들 동기화
-    async syncSelectedMatches() {
-        const selectedCheckboxes = document.querySelectorAll('.sync-toggle-checkbox:checked');
-        const selectedMatchIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.matchId);
-        
-        if (selectedMatchIds.length === 0) {
-            Utils.showError('동기화할 경기를 선택해주세요.');
-            return;
-        }
-
-        if (!confirm(`선택된 ${selectedMatchIds.length}개 경기를 BetsAPI 데이터로 덮어씁니다. 계속하시겠습니까?`)) {
-            return;
-        }
-
-        console.log('🔄 선택된 경기 동기화 시작:', selectedMatchIds);
-        
-        try {
-            Utils.showSuccess(`${selectedMatchIds.length}개 경기 동기화를 시작합니다...`);
-            
-            // 현재 타입에 따라 동기화 실행
-            const response = await CONFIG.api.post(`/enhanced-football/sync/selected`, {
-                matchIds: selectedMatchIds,
-                type: CONFIG.state.currentMatchType,
-                day: this.formatDateForAPI(this.currentDate)
-            });
-            
-            if (response.data.success) {
-                const result = response.data.data;
-                Utils.showSuccess(`동기화 완료! 
-                🔄 ${result.updated}개 경기 업데이트
-                ❌ ${result.errors || 0}개 오류
-                💾 선택된 경기들이 최신 데이터로 업데이트되었습니다.`);
-                
-                await this.checkDataStatus(); // 상태 업데이트
-                await this.loadMatches(); // 새로고침
-            }
-        } catch (error) {
-            console.error('선택 경기 동기화 실패:', error);
-            Utils.showError(`동기화에 실패했습니다: ${error.response?.data?.message || error.message}`);
-        }
-    },
-
-    // 경기 데이터 로드
+    // 경기 데이터 로드 (수정된 버전)
     async loadMatches() {
-        console.log(`⚽ ${CONFIG.state.currentMatchType} 경기 로드 (통합 동기화 버전)`);
+        console.log(`⚽ ${CONFIG.state.currentMatchType} 경기 로드 (수정된 버전)`);
         
         const container = document.getElementById('matchesData');
         container.innerHTML = Utils.createLoadingHTML('축구 경기 데이터를 불러오는 중...');
@@ -1001,7 +1013,7 @@ ${match.adminNote ? `\n📝 관리자 노트: ${match.adminNote}` : ''}
             },
             ss: document.getElementById('matchScore').value || null,
             adminNote: document.getElementById('adminNote').value || null,
-            allowSync: document.getElementById('allowSync').checked, // 🆕 동기화 허용 설정
+            allowSync: document.getElementById('allowSync').checked, // 동기화 허용 설정
             status: 'active',
         };
         
@@ -1027,7 +1039,7 @@ ${match.adminNote ? `\n📝 관리자 노트: ${match.adminNote}` : ''}
                     '경기가 수정되었습니다.' : 
                     '경기가 추가되었습니다.');
                 this.hideModal();
-                await this.loadMatches(); // 새로고침
+                await this.loadMatches();
             }
         } catch (error) {
             console.error('경기 저장 실패:', error);
@@ -1055,7 +1067,7 @@ ${match.adminNote ? `\n📝 관리자 노트: ${match.adminNote}` : ''}
             document.getElementById('matchStatus').value = match.time_status || '0';
             document.getElementById('matchScore').value = match.ss || '';
             document.getElementById('adminNote').value = match.adminNote || '';
-            document.getElementById('allowSync').checked = match.allowSync !== false; // 🆕 동기화 허용 설정
+            document.getElementById('allowSync').checked = match.allowSync !== false; // 동기화 허용 설정
             
             this.showModal();
         } catch (error) {
