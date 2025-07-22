@@ -239,7 +239,7 @@ const FootballSchedule = {
         }
     },
 
-    // 🆕 새로운 동기화 메서드
+    // 🆕 새로운 동기화 메서드 (수정된 버전)
     async performSync() {
         console.log('🔄 동기화 시작');
         
@@ -257,14 +257,17 @@ const FootballSchedule = {
             
             console.log(`📅 동기화 대상: ${currentType}, 날짜: ${currentDay}`);
             
-            // Enhanced API를 통해 자동 동기화 실행
-            const response = await CONFIG.api.post(`/enhanced-football/sync/auto/${currentType}`, null, {
-                params: { day: currentDay }
+            // Enhanced API를 통해 자동 동기화 실행 - 🔧 수정: 빈 객체 전송
+            const response = await CONFIG.api.post(`/enhanced-football/sync/auto/${currentType}`, {}, {
+                params: { day: currentDay },
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
             
             if (response.data.success) {
                 const result = response.data.data;
-                Utils.showSuccess(`동기화 완료! 생성: ${result.created}개, 업데이트: ${result.updated}개`);
+                Utils.showSuccess(`동기화 완료! 생성: ${result.created}개, 업데이트: ${result.updated}개, 건너뜀: ${result.skipped || 0}개`);
                 
                 // 상태 및 데이터 새로고침
                 await this.checkDataStatus();
@@ -273,7 +276,32 @@ const FootballSchedule = {
             
         } catch (error) {
             console.error('동기화 실패:', error);
-            Utils.showError(`동기화 실패: ${error.response?.data?.message || error.message}`);
+            
+            // 🔧 수정: 에러 메시지 파싱 개선
+            let errorMessage = '동기화에 실패했습니다.';
+            
+            if (error.response) {
+                // 서버에서 응답을 받은 경우
+                if (error.response.data) {
+                    if (typeof error.response.data === 'string') {
+                        errorMessage = error.response.data;
+                    } else if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                    } else {
+                        errorMessage = `서버 오류 (${error.response.status}): ${error.response.statusText}`;
+                    }
+                } else {
+                    errorMessage = `HTTP ${error.response.status}: ${error.response.statusText}`;
+                }
+            } else if (error.request) {
+                // 요청은 보냈지만 응답을 받지 못한 경우
+                errorMessage = '서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.';
+            } else if (error.message) {
+                // 요청 설정 중 에러가 발생한 경우
+                errorMessage = error.message;
+            }
+            
+            Utils.showError(`동기화 실패: ${errorMessage}`);
         } finally {
             // 버튼 원상복구
             syncBtn.disabled = false;
