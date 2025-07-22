@@ -1869,3 +1869,240 @@ body {
         color: #adb5bd;
     }
 }
+
+/* 동기화 토글 컨테이너 */
+.sync-toggle-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.sync-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.85em;
+    color: #495057;
+    transition: all 0.3s ease;
+}
+
+.sync-toggle-label:hover {
+    color: #007bff;
+}
+
+/* 동기화 토글 체크박스 */
+.sync-toggle-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: #28a745;
+    cursor: pointer;
+    margin: 0;
+}
+
+.sync-toggle-text {
+    font-weight: 500;
+    user-select: none;
+}
+
+/* 매치 컨트롤 영역 */
+.match-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+}
+
+.match-time {
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* 선택된 경기 수 표시 */
+.selected-count {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    font-weight: 600;
+    margin-left: 10px;
+}
+
+/* 동기화 컨트롤 영역 */
+.sync-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.sync-controls .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.75em;
+    border-radius: 4px;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid #6c757d;
+    color: #6c757d;
+    transition: all 0.3s ease;
+}
+
+.btn-outline:hover {
+    background: #6c757d;
+    color: white;
+}
+
+/* 동기화 버튼 비활성화 상태 */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* 선택된 경기 카드 하이라이트 */
+.match-card[data-match-id] .sync-toggle-checkbox:checked ~ .sync-toggle-text {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.match-card[data-match-id]:has(.sync-toggle-checkbox:checked) {
+    border-left: 4px solid #28a745;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fff9 100%);
+}
+
+/* 체크박스 스타일 개선 */
+.sync-toggle-checkbox {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #ddd;
+    border-radius: 3px;
+    background: white;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.sync-toggle-checkbox:checked {
+    background: #28a745;
+    border-color: #28a745;
+}
+
+.sync-toggle-checkbox:checked::after {
+    content: '✓';
+    color: white;
+    font-size: 12px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: bold;
+}
+
+.sync-toggle-checkbox:hover {
+    border-color: #28a745;
+    box-shadow: 0 0 5px rgba(40, 167, 69, 0.3);
+}
+
+/* 동기화 허용 필드 (모달에서) */
+.form-control-checkbox {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    accent-color: #28a745;
+}
+
+/* 통합 동기화 관련 스타일 */
+.controls #syncBtn {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.controls #syncBtn:hover:not(:disabled) {
+    background: linear-gradient(45deg, #218838, #1e7e34);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.controls #syncBtn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+/* 반응형 대응 */
+@media (max-width: 768px) {
+    .match-controls {
+        align-items: center;
+        text-align: center;
+    }
+    
+    .sync-toggle-container {
+        justify-content: center;
+        margin-bottom: 5px;
+    }
+    
+    .sync-controls {
+        flex-direction: column;
+        gap: 5px;
+        align-items: stretch;
+    }
+    
+    .sync-controls .btn-sm {
+        width: 100%;
+    }
+    
+    .selected-count {
+        text-align: center;
+        margin: 5px 0;
+    }
+}
+
+/* 접근성 개선 */
+.sync-toggle-label:focus-within {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.sync-toggle-checkbox:focus {
+    outline: none;
+}
+
+/* 선택 상태 시각적 피드백 */
+.match-card[data-match-id]:has(.sync-toggle-checkbox:checked) .match-header {
+    background: linear-gradient(135deg, #e8f5e8, #d4edda);
+    border-radius: 8px;
+    padding: 8px;
+    margin: -8px -8px 8px -8px;
+}
+
+/* 로딩 상태에서 토글 비활성화 */
+.loading .sync-toggle-checkbox {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* 애니메이션 효과 */
+.sync-toggle-container {
+    animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
