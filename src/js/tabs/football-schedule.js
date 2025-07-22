@@ -1,4 +1,4 @@
-// public/js/tabs/football-schedule.js (업데이트됨)
+// src/js/tabs/football-schedule.js (수정됨)
 const FootballSchedule = {
     // 현재 선택된 날짜 상태
     currentDate: new Date(),
@@ -6,7 +6,7 @@ const FootballSchedule = {
     // 수정 중인 경기 ID
     editingMatchId: null,
 
-    // 축구 경기 일정 HTML 템플릿
+    // 축구 경기 일정 HTML 템플릿 (리그 목록 버튼 제거)
     template: `
         <div class="content-panel">
             <h2>⚽ 축구 경기 일정</h2>
@@ -33,9 +33,9 @@ const FootballSchedule = {
 
             <div class="controls">
                 <button class="btn btn-primary" id="refreshMatchesBtn">🔄 새로고침</button>
-                <button class="btn btn-info" id="loadLeaguesBtn">🏆 리그 목록 보기</button>
-                <button class="btn btn-success" id="autoSyncBtn">🔄 자동 동기화</button>
+                <button class="btn btn-success" id="syncBtn">🔄 동기화</button>
                 <button class="btn btn-warning" id="addMatchBtn">➕ 경기 추가</button>
+                <button class="btn btn-info" id="dbStatsBtn">📊 DB 통계</button>
             </div>
 
             <div id="matchesData" class="data-list"></div>
@@ -118,18 +118,18 @@ const FootballSchedule = {
         await this.loadMatches();
     },
 
-    // 이벤트 리스너 등록
+    // 이벤트 리스너 등록 (리그 목록 버튼 제거, 동기화 버튼 이름 변경)
     attachEventListeners() {
         // 기존 탭 이벤트
         document.getElementById('upcoming-tab').addEventListener('click', () => this.switchMatchType('upcoming'));
         document.getElementById('inplay-tab').addEventListener('click', () => this.switchMatchType('inplay'));
         document.getElementById('ended-tab').addEventListener('click', () => this.switchMatchType('ended'));
         document.getElementById('refreshMatchesBtn').addEventListener('click', () => this.loadMatches());
-        document.getElementById('loadLeaguesBtn').addEventListener('click', () => this.loadLeagues());
         
-        // 새로운 기능 이벤트
-        document.getElementById('autoSyncBtn').addEventListener('click', () => this.autoSync());
+        // 수정된 버튼 이벤트
+        document.getElementById('syncBtn').addEventListener('click', () => this.syncData()); // 이름 변경
         document.getElementById('addMatchBtn').addEventListener('click', () => this.showAddMatchModal());
+        document.getElementById('dbStatsBtn').addEventListener('click', () => this.showDbStats());
         
         // 날짜 선택 이벤트
         document.getElementById('prevDayBtn').addEventListener('click', () => this.changeDate(-1));
@@ -320,24 +320,51 @@ const FootballSchedule = {
         container.insertAdjacentHTML('afterbegin', statsHtml);
     },
 
-    // 자동 동기화
-    async autoSync() {
-        console.log('🔄 자동 동기화 시작');
+    // 동기화 기능 (이름 변경: autoSync → syncData)
+    async syncData() {
+        console.log('🔄 BetsAPI → MongoDB 동기화 시작');
         
         try {
             const type = CONFIG.state.currentMatchType;
             const day = this.formatDateForAPI(this.currentDate);
             
+            Utils.showSuccess('동기화를 시작합니다...');
+            
             const response = await CONFIG.api.post(`/enhanced-football/sync/auto/${type}?day=${day}`);
             
             if (response.data.success) {
                 const result = response.data.data;
-                Utils.showSuccess(`동기화 완료: ${result.created}개 생성, ${result.updated}개 업데이트`);
+                Utils.showSuccess(`동기화 완료! 
+                📥 ${result.created}개 신규 저장
+                🔄 ${result.updated}개 업데이트
+                💾 데이터가 football-matches 컬렉션에 저장되었습니다.`);
+                
                 await this.loadMatches(); // 새로고침
             }
         } catch (error) {
-            console.error('자동 동기화 실패:', error);
-            Utils.showError('자동 동기화에 실패했습니다.');
+            console.error('동기화 실패:', error);
+            Utils.showError(`동기화에 실패했습니다: ${error.response?.data?.message || error.message}`);
+        }
+    },
+
+    // DB 통계 보기
+    async showDbStats() {
+        try {
+            const response = await CONFIG.api.get('/enhanced-football/stats/db');
+            const stats = response.data.data;
+            
+            alert(`📊 MongoDB 축구 경기 데이터 통계
+            
+🔸 컬렉션: football-matches
+🔸 예정 경기: ${stats.upcoming}개
+🔸 진행중 경기: ${stats.inplay}개  
+🔸 종료 경기: ${stats.ended}개
+🔸 총 경기 수: ${stats.total}개
+
+💡 MongoDB 확인 명령어:
+db.getCollection('football-matches').find().limit(10).pretty()`);
+        } catch (error) {
+            Utils.showError('DB 통계를 불러올 수 없습니다.');
         }
     },
 
@@ -392,7 +419,7 @@ const FootballSchedule = {
             const response = await CONFIG.api.delete(`/football-matches/${localId}`);
             
             if (response.data.success) {
-                Utils.showSuccess('경기가 삭제되었습니다.');
+                Utils.showSuccess('경기가 football-matches 컬렉션에서 삭제되었습니다.');
                 await this.loadMatches(); // 새로고침
             }
         } catch (error) {
@@ -408,7 +435,7 @@ const FootballSchedule = {
             const response = await CONFIG.api.get(`/enhanced-football/match/${betsApiId}`);
             const match = response.data.data;
             
-            // 로컬 DB에 저장할 데이터 구성
+            // football-matches 컬렉션에 저장할 데이터 구성
             const saveData = {
                 betsApiId: match.id,
                 sport_id: match.sport_id,
@@ -428,12 +455,12 @@ const FootballSchedule = {
             const saveResponse = await CONFIG.api.post('/football-matches', saveData);
             
             if (saveResponse.data.success) {
-                Utils.showSuccess('경기가 로컬에 저장되었습니다.');
+                Utils.showSuccess('경기가 football-matches 컬렉션에 저장되었습니다.');
                 await this.loadMatches(); // 새로고침
             }
         } catch (error) {
             console.error('로컬 저장 실패:', error);
-            Utils.showError('로컬 저장에 실패했습니다.');
+            Utils.showError('football-matches 컬렉션 저장에 실패했습니다.');
         }
     },
 
@@ -479,13 +506,15 @@ const FootballSchedule = {
             }
             
             if (response.data.success) {
-                Utils.showSuccess(this.editingMatchId ? '경기가 수정되었습니다.' : '경기가 추가되었습니다.');
+                Utils.showSuccess(this.editingMatchId ? 
+                    '경기가 football-matches 컬렉션에서 수정되었습니다.' : 
+                    '경기가 football-matches 컬렉션에 추가되었습니다.');
                 this.hideModal();
                 await this.loadMatches(); // 새로고침
             }
         } catch (error) {
             console.error('경기 저장 실패:', error);
-            Utils.showError('경기 저장에 실패했습니다.');
+            Utils.showError('football-matches 컬렉션 저장에 실패했습니다.');
         }
     },
 
@@ -647,43 +676,25 @@ const FootballSchedule = {
             
             // 상세 정보를 모달이나 알림으로 표시
             const detailsText = `
-경기 상세 정보:
+📊 축구 경기 상세 정보
 
-홈팀: ${match.home?.name || 'N/A'}
-원정팀: ${match.away?.name || 'N/A'}
-리그: ${match.league?.name || 'N/A'}
-시간: ${Utils.formatMatchTime(match.time)}
-상태: ${match.time_status === '0' ? '예정' : match.time_status === '1' ? '진행중' : '종료'}
-스코어: ${match.ss || 'N/A'}
+🏠 홈팀: ${match.home?.name || 'N/A'}
+✈️ 원정팀: ${match.away?.name || 'N/A'}
+🏆 리그: ${match.league?.name || 'N/A'}
+⏰ 시간: ${Utils.formatMatchTime(match.time)}
+📈 상태: ${match.time_status === '0' ? '예정' : match.time_status === '1' ? '진행중' : '종료'}
+⚽ 스코어: ${match.ss || 'N/A'}
 
-${match.isModified ? '✏️ 관리자가 수정한 경기' : ''}
-${match.adminNote ? `\n관리자 노트: ${match.adminNote}` : ''}
+${match.isModified ? '✏️ 관리자가 수정한 경기입니다' : ''}
+${match.adminNote ? `\n📝 관리자 노트: ${match.adminNote}` : ''}
+
+💾 저장 위치: MongoDB > football-matches 컬렉션
+🆔 BetsAPI ID: ${match.id}
             `;
             
             alert(detailsText);
         } catch (error) {
             Utils.showError('경기 상세 정보를 불러올 수 없습니다.');
-        }
-    },
-
-    // 리그 목록 로드
-    async loadLeagues() {
-        try {
-            const response = await CONFIG.api.get('/football/leagues');
-            const leagues = response.data.data.results || [];
-            
-            const container = document.getElementById('matchesData');
-            container.innerHTML = leagues.map(league => `
-                <div class="data-card">
-                    <h3>🏆 ${league.name}</h3>
-                    <p><strong>ID:</strong> ${league.id}</p>
-                    <p><strong>국가:</strong> ${league.cc || 'N/A'}</p>
-                </div>
-            `).join('');
-            
-            Utils.showSuccess(`${leagues.length}개의 리그를 불러왔습니다.`);
-        } catch (error) {
-            Utils.showError('리그 목록을 불러올 수 없습니다.');
         }
     }
 };
