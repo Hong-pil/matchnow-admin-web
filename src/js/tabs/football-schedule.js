@@ -1,4 +1,4 @@
-// src/js/tabs/football-schedule.js (수정됨)
+// src/js/tabs/football-schedule.js (완전한 데이터 활용 버전)
 const FootballSchedule = {
     // 현재 선택된 날짜 상태
     currentDate: new Date(),
@@ -6,10 +6,13 @@ const FootballSchedule = {
     // 수정 중인 경기 ID
     editingMatchId: null,
 
-    // 축구 경기 일정 HTML 템플릿 (리그 목록 버튼 제거)
+    // 축구 경기 일정 HTML 템플릿 (완전한 데이터 활용)
     template: `
         <div class="content-panel">
-            <h2>⚽ 축구 경기 일정</h2>
+            <h2>⚽ 축구 경기 일정 (완전한 통계 데이터)</h2>
+            
+            <!-- 데이터 상태 표시 -->
+            <div id="dataStatusBanner" class="data-status-banner"></div>
             
             <!-- 날짜 선택 섹션 -->
             <div class="date-selector-section">
@@ -33,9 +36,11 @@ const FootballSchedule = {
 
             <div class="controls">
                 <button class="btn btn-primary" id="refreshMatchesBtn">🔄 새로고침</button>
-                <button class="btn btn-success" id="syncBtn">🔄 동기화</button>
-                <button class="btn btn-warning" id="addMatchBtn">➕ 경기 추가</button>
+                <button class="btn btn-success" id="syncBtn">🔄 완전 동기화</button>
+                <button class="btn btn-warning" id="resyncBtn">⚡ 불완전 데이터 재동기화</button>
                 <button class="btn btn-info" id="dbStatsBtn">📊 DB 통계</button>
+                <button class="btn btn-secondary" id="completenessBtn">📈 데이터 완성도</button>
+                <button class="btn btn-purple" id="highQualityBtn">🌟 고품질 경기</button>
             </div>
 
             <div id="matchesData" class="data-list"></div>
@@ -43,7 +48,20 @@ const FootballSchedule = {
             <div id="matchesPagination" class="pagination" style="display: none;"></div>
         </div>
 
-        <!-- 경기 수정/추가 모달 -->
+        <!-- 경기 상세 통계 모달 -->
+        <div id="statsModal" class="modal" style="display: none;">
+            <div class="modal-content stats-modal-content">
+                <div class="modal-header">
+                    <h3 id="statsModalTitle">📊 경기 상세 통계</h3>
+                    <button class="btn btn-sm btn-danger" id="closeStatsModalBtn">✕</button>
+                </div>
+                <div class="modal-body" id="statsModalBody">
+                    <!-- 통계 내용이 동적으로 로드됨 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 기존 경기 수정/추가 모달 -->
         <div id="matchModal" class="modal" style="display: none;">
             <div class="modal-content">
                 <div class="modal-header">
@@ -52,6 +70,7 @@ const FootballSchedule = {
                 </div>
                 <div class="modal-body">
                     <form id="matchForm">
+                        <!-- 기존 폼 내용 유지 -->
                         <div class="form-row">
                             <div class="form-group">
                                 <label>홈팀 이름</label>
@@ -102,23 +121,23 @@ const FootballSchedule = {
 
     // 렌더링
     async render() {
-        console.log('⚽ 축구 경기 일정 로드');
+        console.log('⚽ 축구 경기 일정 로드 (완전한 데이터 버전)');
         
-        // 템플릿 렌더링
         Utils.renderContent(this.template);
         
-        // 현재 날짜로 초기화
         this.currentDate = new Date();
         this.updateDateDisplay();
         
-        // 이벤트 리스너 등록
         this.attachEventListeners();
+        
+        // 데이터 상태 체크
+        await this.checkDataStatus();
         
         // 초기 데이터 로드
         await this.loadMatches();
     },
 
-    // 이벤트 리스너 등록 (리그 목록 버튼 제거, 동기화 버튼 이름 변경)
+    // 이벤트 리스너 등록 (새로운 기능 추가)
     attachEventListeners() {
         // 기존 탭 이벤트
         document.getElementById('upcoming-tab').addEventListener('click', () => this.switchMatchType('upcoming'));
@@ -126,10 +145,12 @@ const FootballSchedule = {
         document.getElementById('ended-tab').addEventListener('click', () => this.switchMatchType('ended'));
         document.getElementById('refreshMatchesBtn').addEventListener('click', () => this.loadMatches());
         
-        // 수정된 버튼 이벤트
-        document.getElementById('syncBtn').addEventListener('click', () => this.syncData()); // 이름 변경
-        document.getElementById('addMatchBtn').addEventListener('click', () => this.showAddMatchModal());
+        // 동기화 버튼들
+        document.getElementById('syncBtn').addEventListener('click', () => this.syncData());
+        document.getElementById('resyncBtn').addEventListener('click', () => this.resyncIncompleteData()); // 🆕
         document.getElementById('dbStatsBtn').addEventListener('click', () => this.showDbStats());
+        document.getElementById('completenessBtn').addEventListener('click', () => this.showDataCompleteness()); // 🆕
+        document.getElementById('highQualityBtn').addEventListener('click', () => this.showHighQualityMatches()); // 🆕
         
         // 날짜 선택 이벤트
         document.getElementById('prevDayBtn').addEventListener('click', () => this.changeDate(-1));
@@ -137,17 +158,408 @@ const FootballSchedule = {
         document.getElementById('todayBtn').addEventListener('click', () => this.setToday());
         document.getElementById('datePicker').addEventListener('change', (e) => this.setDateFromPicker(e.target.value));
         
-        // 모달 이벤트
+        // 모달 이벤트들
         document.getElementById('closeModalBtn').addEventListener('click', () => this.hideModal());
         document.getElementById('cancelBtn').addEventListener('click', () => this.hideModal());
         document.getElementById('matchForm').addEventListener('submit', (e) => this.saveMatch(e));
+        document.getElementById('closeStatsModalBtn').addEventListener('click', () => this.hideStatsModal()); // 🆕
         
         // 모달 외부 클릭 시 닫기
         document.getElementById('matchModal').addEventListener('click', (e) => {
-            if (e.target.id === 'matchModal') {
-                this.hideModal();
-            }
+            if (e.target.id === 'matchModal') this.hideModal();
         });
+        document.getElementById('statsModal').addEventListener('click', (e) => {
+            if (e.target.id === 'statsModal') this.hideStatsModal();
+        });
+    },
+
+    // 🆕 데이터 상태 체크
+    async checkDataStatus() {
+        try {
+            const response = await CONFIG.api.get('/enhanced-football/check/sync-needed');
+            const data = response.data.data;
+            
+            const banner = document.getElementById('dataStatusBanner');
+            let statusClass = 'success';
+            let statusIcon = '✅';
+            
+            if (data.syncNeeded) {
+                statusClass = 'error';
+                statusIcon = '❌';
+            } else if (data.incompleteData) {
+                statusClass = 'warning';
+                statusIcon = '⚠️';
+            }
+            
+            banner.className = `data-status-banner ${statusClass}`;
+            banner.innerHTML = `
+                <div class="status-info">
+                    <span class="status-icon">${statusIcon}</span>
+                    <div class="status-details">
+                        <strong>데이터 상태:</strong> ${data.recommendation}
+                        <br>
+                        <small>완성도: ${data.completeness}% | 총 경기: ${data.dbStats.total}개</small>
+                    </div>
+                </div>
+                ${data.incompleteData ? `<button class="btn btn-sm btn-warning" onclick="FootballSchedule.resyncIncompleteData()">⚡ 지금 재동기화</button>` : ''}
+            `;
+        } catch (error) {
+            console.error('데이터 상태 체크 실패:', error);
+        }
+    },
+
+    // Enhanced 경기 카드 생성 (완전한 통계 포함)
+    createEnhancedMatchCard(match) {
+        const matchTime = Utils.formatMatchTime(match.time);
+        const isModified = match.isModified || false;
+        const isLocalOnly = match.isLocalOnly || false;
+
+        let statusClass = 'status-upcoming';
+        let statusText = '예정';
+        
+        if (match.time_status === '1') {
+            statusClass = 'status-inplay';
+            statusText = '진행중';
+        } else if (match.time_status === '3') {
+            statusClass = 'status-ended';
+            statusText = '종료';
+        }
+
+        const score = match.ss ? match.ss.split('-') : ['', ''];
+        const homeScore = score[0] || '';
+        const awayScore = score[1] || '';
+
+        // 통계 정보 표시
+        const statsInfo = this.generateStatsPreview(match.stats || match.fullStats);
+        
+        // 품질 배지
+        const qualityBadge = this.generateQualityBadge(match);
+
+        // 수정된 경기 표시
+        const modifiedBadge = isModified ? 
+            `<span class="modified-badge" title="관리자가 수정한 경기">✏️ 수정됨</span>` : '';
+        
+        const localOnlyBadge = isLocalOnly ? 
+            `<span class="local-only-badge" title="로컬에만 있는 경기">📍 로컬</span>` : '';
+
+        return `
+            <div class="match-card enhanced-match-card ${match.fullStats ? 'complete-data' : ''}">
+                <div class="match-header">
+                    <div class="match-league">
+                        ${match.league?.name || '알 수 없는 리그'}
+                        ${modifiedBadge}
+                        ${localOnlyBadge}
+                        ${qualityBadge}
+                    </div>
+                    <div class="match-time">${matchTime}</div>
+                </div>
+                
+                <div class="match-teams">
+                    <div class="team">
+                        <div class="team-name">${match.home?.name || '홈팀'}</div>
+                        ${match.o_home ? `<small class="alt-name">(${match.o_home.name})</small>` : ''}
+                    </div>
+                    
+                    <div class="vs">
+                        ${match.ss ? 
+                            `<div class="score">${homeScore} - ${awayScore}</div>` : 
+                            'VS'
+                        }
+                    </div>
+                    
+                    <div class="team">
+                        <div class="team-name">${match.away?.name || '원정팀'}</div>
+                        ${match.o_away ? `<small class="alt-name">(${match.o_away.name})</small>` : ''}
+                    </div>
+                </div>
+                
+                <div class="match-status">
+                    <span class="match-status ${statusClass}">${statusText}</span>
+                    ${match.timer?.tm ? `<span style="margin-left: 10px;">⏱️ ${match.timer.tm}'</span>` : ''}
+                </div>
+                
+                ${statsInfo}
+                
+                ${match.adminNote ? `
+                    <div class="admin-note">
+                        <strong>관리자 노트:</strong> ${match.adminNote}
+                    </div>
+                ` : ''}
+                
+                <div class="match-actions" style="margin-top: 15px;">
+                    <button class="btn btn-info btn-sm" onclick="FootballSchedule.viewMatchDetails('${match.id}')">상세 보기</button>
+                    ${(match.stats || match.fullStats) ? `
+                        <button class="btn btn-purple btn-sm" onclick="FootballSchedule.showDetailedStats('${match._id || match.id}')">📊 통계</button>
+                    ` : ''}
+                    ${match._id ? `
+                        <button class="btn btn-warning btn-sm" onclick="FootballSchedule.editMatch('${match._id}', '${match.id}')">✏️ 수정</button>
+                        <button class="btn btn-danger btn-sm" onclick="FootballSchedule.deleteMatch('${match._id}', '${match.home?.name || '홈팀'}', '${match.away?.name || '원정팀'}')">🗑️ 삭제</button>
+                    ` : `
+                        <button class="btn btn-success btn-sm" onclick="FootballSchedule.saveToLocal('${match.id}')">💾 저장</button>
+                    `}
+                </div>
+            </div>
+        `;
+    },
+
+    // 🆕 통계 미리보기 생성
+    generateStatsPreview(stats) {
+        if (!stats) return '<div class="no-stats">📊 통계 데이터 없음</div>';
+        
+        const possession = stats.possession_rt ? `${stats.possession_rt[0]}% - ${stats.possession_rt[1]}%` : 'N/A';
+        const shots = stats.goalattempts ? `${stats.goalattempts[0]} - ${stats.goalattempts[1]}` : 'N/A';
+        const xg = stats.xg ? `${stats.xg[0]} - ${stats.xg[1]}` : 'N/A';
+        
+        return `
+            <div class="stats-preview">
+                <div class="stat-item">
+                    <span class="stat-label">점유율:</span>
+                    <span class="stat-value">${possession}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">슛:</span>
+                    <span class="stat-value">${shots}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">xG:</span>
+                    <span class="stat-value">${xg}</span>
+                </div>
+            </div>
+        `;
+    },
+
+    // 🆕 품질 배지 생성
+    generateQualityBadge(match) {
+        if (!match.stats && !match.fullStats) return '';
+        
+        const stats = match.stats || match.fullStats;
+        const totalGoals = parseInt(stats.goals?.[0] || '0') + parseInt(stats.goals?.[1] || '0');
+        const totalShots = parseInt(stats.goalattempts?.[0] || '0') + parseInt(stats.goalattempts?.[1] || '0');
+        
+        if (totalGoals >= 4) {
+            return '<span class="quality-badge excellent">🔥 명경기</span>';
+        } else if (totalGoals >= 3 || totalShots >= 20) {
+            return '<span class="quality-badge good">⭐ 좋은경기</span>';
+        }
+        return '';
+    },
+
+    // 🆕 상세 통계 모달 표시
+    async showDetailedStats(matchId) {
+        try {
+            const response = await CONFIG.api.get(`/enhanced-football/match/${matchId}/stats/detailed`);
+            const stats = response.data.data;
+            
+            const qualityResponse = await CONFIG.api.get(`/enhanced-football/match/${matchId}/quality`);
+            const quality = qualityResponse.data.data;
+            
+            document.getElementById('statsModalTitle').textContent = '📊 경기 상세 통계 분석';
+            document.getElementById('statsModalBody').innerHTML = this.generateDetailedStatsHTML(stats, quality);
+            
+            this.showStatsModal();
+        } catch (error) {
+            console.error('상세 통계 로드 실패:', error);
+            Utils.showError('상세 통계를 불러올 수 없습니다.');
+        }
+    },
+
+    // 🆕 상세 통계 HTML 생성
+    generateDetailedStatsHTML(stats, quality) {
+        return `
+            <div class="detailed-stats">
+                <!-- 경기 품질 -->
+                <div class="quality-section">
+                    <h4>🎯 경기 품질 평가</h4>
+                    <div class="quality-card ${quality.quality}">
+                        <div class="quality-score">${quality.score}/100</div>
+                        <div class="quality-description">${quality.description}</div>
+                        <div class="quality-metrics">
+                            <span>⚽ ${quality.metrics.totalGoals}골</span>
+                            <span>🎯 ${quality.metrics.totalShots}슛</span>
+                            <span>🔥 ${quality.metrics.totalOnTarget}유효슛</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 점유율 & 지배력 -->
+                <div class="possession-section">
+                    <h4>📊 점유율 & 지배력</h4>
+                    <div class="possession-bars">
+                        <div class="possession-bar">
+                            <span class="team-label">홈팀</span>
+                            <div class="bar">
+                                <div class="fill home" style="width: ${stats.possession.home}%"></div>
+                            </div>
+                            <span class="percentage">${stats.possession.home}%</span>
+                        </div>
+                        <div class="possession-bar">
+                            <span class="team-label">원정팀</span>
+                            <div class="bar">
+                                <div class="fill away" style="width: ${stats.possession.away}%"></div>
+                            </div>
+                            <span class="percentage">${stats.possession.away}%</span>
+                        </div>
+                    </div>
+                    <div class="dominance-info">
+                        <div>홈팀 지배력: <strong>${stats.performance.home_dominance}/100</strong></div>
+                        <div>원정팀 지배력: <strong>${stats.performance.away_dominance}/100</strong></div>
+                    </div>
+                </div>
+
+                <!-- 슛 통계 -->
+                <div class="shots-section">
+                    <h4>🎯 슛 통계</h4>
+                    <div class="shots-comparison">
+                        <div class="team-shots">
+                            <h5>홈팀</h5>
+                            <div>총 슛: <strong>${stats.shots.home.total}</strong></div>
+                            <div>유효슛: <strong>${stats.shots.home.on_target}</strong></div>
+                            <div>빗나간 슛: <strong>${stats.shots.home.off_target}</strong></div>
+                            <div>정확도: <strong>${stats.shots.home.accuracy}</strong></div>
+                        </div>
+                        <div class="team-shots">
+                            <h5>원정팀</h5>
+                            <div>총 슛: <strong>${stats.shots.away.total}</strong></div>
+                            <div>유효슛: <strong>${stats.shots.away.on_target}</strong></div>
+                            <div>빗나간 슛: <strong>${stats.shots.away.off_target}</strong></div>
+                            <div>정확도: <strong>${stats.shots.away.accuracy}</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- xG (Expected Goals) -->
+                <div class="xg-section">
+                    <h4>📈 Expected Goals (xG)</h4>
+                    <div class="xg-comparison">
+                        <div class="xg-bar">
+                            <span>홈팀: <strong>${stats.xg.home}</strong></span>
+                            <div class="xg-visual" style="width: ${(parseFloat(stats.xg.home) / (parseFloat(stats.xg.home) + parseFloat(stats.xg.away))) * 100}%"></div>
+                        </div>
+                        <div class="xg-bar">
+                            <span>원정팀: <strong>${stats.xg.away}</strong></span>
+                            <div class="xg-visual away" style="width: ${(parseFloat(stats.xg.away) / (parseFloat(stats.xg.home) + parseFloat(stats.xg.away))) * 100}%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 카드 통계 -->
+                <div class="cards-section">
+                    <h4>🟨🟥 카드 통계</h4>
+                    <div class="cards-grid">
+                        <div class="team-cards">
+                            <h5>홈팀</h5>
+                            <div>노란카드: <span class="yellow-card">${stats.cards.home.yellow}</span></div>
+                            <div>빨간카드: <span class="red-card">${stats.cards.home.red}</span></div>
+                        </div>
+                        <div class="team-cards">
+                            <h5>원정팀</h5>
+                            <div>노란카드: <span class="yellow-card">${stats.cards.away.yellow}</span></div>
+                            <div>빨간카드: <span class="red-card">${stats.cards.away.red}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    // 🆕 불완전한 데이터 재동기화
+    async resyncIncompleteData() {
+        console.log('⚡ 불완전한 데이터 재동기화 시작');
+        
+        try {
+            Utils.showSuccess('불완전한 데이터 재동기화를 시작합니다...');
+            
+            const response = await CONFIG.api.post('/enhanced-football/sync/resync-incomplete');
+            
+            if (response.data.success) {
+                const result = response.data.data;
+                Utils.showSuccess(`재동기화 완료! 
+                🔄 ${result.resynced}개 경기 재동기화
+                ❌ ${result.errors}개 오류
+                💾 완전한 통계 데이터로 업데이트되었습니다.`);
+                
+                await this.checkDataStatus(); // 상태 업데이트
+                await this.loadMatches(); // 새로고침
+            }
+        } catch (error) {
+            console.error('재동기화 실패:', error);
+            Utils.showError(`재동기화에 실패했습니다: ${error.response?.data?.message || error.message}`);
+        }
+    },
+
+    // 🆕 데이터 완성도 보기
+    async showDataCompleteness() {
+        try {
+            const response = await CONFIG.api.get('/enhanced-football/stats/completeness');
+            const completeness = response.data.data;
+            
+            const completenessText = `📊 MongoDB 데이터 완성도 분석
+            
+🔸 총 경기 수: ${completeness.total_matches}개
+🔸 완성도: ${completeness.completeness_percentage}%
+
+📈 완전한 데이터가 있는 경기:
+• 통계 데이터: ${completeness.with_stats}개
+• xG 데이터: ${completeness.with_xg}개  
+• 점유율 데이터: ${completeness.with_possession}개
+• 타이머 정보: ${completeness.with_timer}개
+
+⚠️ 누락 데이터:
+• 통계 없음: ${completeness.missing_fields.stats}개
+• xG 없음: ${completeness.missing_fields.xg}개
+• 점유율 없음: ${completeness.missing_fields.possession_rt}개
+
+💡 권장사항: ${completeness.completeness_percentage < 80 ? '불완전한 데이터 재동기화를 실행하세요.' : '데이터가 충분히 완전합니다!'}`;
+
+            alert(completenessText);
+        } catch (error) {
+            Utils.showError('데이터 완성도를 불러올 수 없습니다.');
+        }
+    },
+
+    // 🆕 고품질 경기 보기
+    async showHighQualityMatches() {
+        console.log('🌟 고품질 경기 조회');
+        
+        const container = document.getElementById('matchesData');
+        container.innerHTML = Utils.createLoadingHTML('고품질 경기를 찾는 중...');
+
+        try {
+            const response = await CONFIG.api.get('/enhanced-football/matches/high-quality?limit=20');
+            const data = response.data.data;
+            
+            if (!data.results || data.results.length === 0) {
+                container.innerHTML = Utils.createEmptyStateHTML('고품질 경기가 없습니다.');
+                return;
+            }
+
+            console.log(`✅ ${data.results.length}개의 고품질 경기를 찾았습니다`);
+
+            const header = `
+                <div class="high-quality-header">
+                    <h3>🌟 고품질 경기 (${data.criteria})</h3>
+                    <p>총 ${data.count}개의 재미있는 경기가 발견되었습니다!</p>
+                    <button class="btn btn-primary btn-sm" onclick="FootballSchedule.loadMatches()">← 일반 목록으로 돌아가기</button>
+                </div>
+            `;
+            
+            container.innerHTML = header + data.results.map(match => this.createEnhancedMatchCard(match)).join('');
+
+        } catch (error) {
+            console.error('❌ 고품질 경기 조회 실패:', error);
+            container.innerHTML = '<div class="error">고품질 경기를 불러올 수 없습니다.</div>';
+        }
+    },
+
+    // 🆕 통계 모달 표시/숨김
+    showStatsModal() {
+        document.getElementById('statsModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    },
+
+    hideStatsModal() {
+        document.getElementById('statsModal').style.display = 'none';
+        document.body.style.overflow = 'auto';
     },
 
     // Enhanced API 사용하여 경기 데이터 로드
