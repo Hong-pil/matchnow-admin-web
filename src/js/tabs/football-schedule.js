@@ -373,7 +373,64 @@ const FootballSchedule = {
         }
     },
 
-    // 🔧 수정: 경기 저장 (수정/추가) - 성공 시 모달 닫기 및 메시지 표시
+    // 🔧 수정: 경기 수정 모달 표시 메서드 (누락된 메서드)
+    async editMatch(localId, betsApiId) {
+        console.log('✏️ 경기 수정 시작:', { localId, betsApiId });
+        
+        try {
+            // MongoDB ObjectId인지 확인
+            const isMongoId = /^[0-9a-fA-F]{24}$/.test(localId);
+            
+            if (!isMongoId) {
+                Utils.showError('BetsAPI 경기는 직접 수정할 수 없습니다. 먼저 저장한 후 수정해주세요.');
+                return;
+            }
+            
+            // 로컬 DB에서 경기 정보 가져오기
+            console.log(`📡 경기 정보 조회: /football-matches/${localId}`);
+            const response = await CONFIG.api.get(`/football-matches/${localId}`);
+            console.log('📦 조회된 경기 정보:', response.data);
+            
+            if (!response.data || !response.data.data) {
+                throw new Error('경기 정보를 찾을 수 없습니다.');
+            }
+            
+            const match = response.data.data;
+            
+            // 모달 제목 설정
+            document.getElementById('modalTitle').textContent = '경기 수정';
+            this.editingMatchId = localId;
+            
+            // 폼에 기존 데이터 채우기
+            document.getElementById('homeTeamName').value = match.home?.name || '';
+            document.getElementById('awayTeamName').value = match.away?.name || '';
+            document.getElementById('leagueName').value = match.league?.name || '';
+            document.getElementById('matchTime').value = match.time || '';
+            document.getElementById('matchStatus').value = match.time_status || '0';
+            document.getElementById('matchScore').value = match.ss || '';
+            document.getElementById('adminNote').value = match.adminNote || '';
+            document.getElementById('allowSync').checked = match.allowSync !== false;
+            
+            console.log('✅ 수정 모달 데이터 로드 완료');
+            this.showModal();
+            
+        } catch (error) {
+            console.error('❌ 경기 정보 로드 실패:', error);
+            
+            let errorMessage = '경기 정보를 불러올 수 없습니다.';
+            if (error.response?.status === 404) {
+                errorMessage = '경기를 찾을 수 없습니다.';
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            Utils.showError(errorMessage);
+        }
+    },
+
+    // 🔧 수정된 saveMatch 메서드 (디버깅 포함)
     async saveMatch(event) {
         event.preventDefault();
         
@@ -412,22 +469,40 @@ const FootballSchedule = {
                 formData.sport_id = '1';
             }
             
+            console.log('📤 전송할 데이터:', formData);
+            console.log('🔧 수정 모드:', !!this.editingMatchId, 'ID:', this.editingMatchId);
+            
             let response;
             
             if (this.editingMatchId) {
-                // 수정 - PUT 요청 사용
-                response = await CONFIG.api.put(`/football-matches/${this.editingMatchId}`, formData);
+                // 수정 - PATCH 요청 사용 (서버 코드에 맞춤)
+                console.log(`📡 PATCH 요청: /football-matches/${this.editingMatchId}`);
+                response = await CONFIG.api.patch(`/football-matches/${this.editingMatchId}`, formData);
             } else {
                 // 추가 - POST 요청 사용
+                console.log('📡 POST 요청: /football-matches');
                 response = await CONFIG.api.post('/football-matches', formData);
             }
             
-            if (response.data.success) {
-                // 🔧 수정: 성공 메시지 표시 후 모달 닫기
+            // 🔧 디버깅: 실제 응답 구조 확인
+            console.log('📦 API 응답 전체:', response);
+            console.log('📦 API 응답 데이터:', response.data);
+            console.log('📦 응답 상태 코드:', response.status);
+            console.log('📦 성공 여부 체크:', response.data?.success);
+            
+            // 🔧 수정: 서버 응답 구조에 맞는 성공 조건 체크
+            const isSuccess = (response.status >= 200 && response.status < 300) &&
+                            (response.data?.success === true || 
+                            response.data?.data || 
+                            !response.data?.error);
+            
+            if (isSuccess) {
+                // 성공 메시지 표시
                 const successMessage = this.editingMatchId ? 
                     '경기가 성공적으로 수정되었습니다.' : 
                     '경기가 성공적으로 추가되었습니다.';
                 
+                console.log('✅ 저장 성공:', successMessage);
                 Utils.showSuccess(successMessage);
                 
                 // 모달 닫기
@@ -436,68 +511,55 @@ const FootballSchedule = {
                 // 데이터 새로고침
                 await this.loadMatches();
                 
-                console.log('✅ 경기 저장 완료:', response.data);
+                console.log('✅ 경기 저장 완료 및 UI 업데이트 완료');
+                
+            } else {
+                // 응답이 성공이 아닌 경우
+                console.error('❌ 서버 응답이 성공이 아님:', response.data);
+                throw new Error(response.data?.message || response.data?.error || '저장에 실패했습니다.');
             }
+            
         } catch (error) {
             console.error('❌ 경기 저장 실패:', error);
+            console.error('❌ 에러 상세:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                statusText: error.response?.statusText
+            });
             
             let errorMessage = '경기 저장에 실패했습니다.';
-            if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
+            
+            // 🔧 수정: 더 상세한 에러 메시지 처리
+            if (error.response) {
+                // 서버에서 응답이 온 경우
+                if (error.response.status === 400) {
+                    errorMessage = '입력 데이터에 오류가 있습니다: ' + (error.response.data?.message || '잘못된 요청');
+                } else if (error.response.status === 404) {
+                    errorMessage = '경기를 찾을 수 없습니다.';
+                } else if (error.response.status === 500) {
+                    errorMessage = '서버 내부 오류가 발생했습니다.';
+                } else if (error.response.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else {
+                    errorMessage = `서버 오류 (${error.response.status}): ${error.response.statusText}`;
+                }
+            } else if (error.request) {
+                // 요청이 전송되었지만 응답을 받지 못한 경우
+                errorMessage = '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.';
             } else if (error.message) {
+                // 그 외의 에러
                 errorMessage = error.message;
             }
             
             Utils.showError(errorMessage);
+            
+            // 에러 발생 시에는 모달을 닫지 않음 (사용자 입력 데이터 보존)
+            
         } finally {
             // 저장 버튼 원상복구
             saveBtn.disabled = false;
             saveBtn.textContent = originalText;
-        }
-    },
-
-    // 🔧 수정: 경기 수정 모달 표시 - MongoDB ID로 조회
-    async editMatch(localId, betsApiId) {
-        console.log('✏️ 경기 수정:', localId, betsApiId);
-        
-        try {
-            // MongoDB ObjectId인지 확인
-            const isMongoId = /^[0-9a-fA-F]{24}$/.test(localId);
-            
-            if (!isMongoId) {
-                Utils.showError('BetsAPI 경기는 직접 수정할 수 없습니다. 먼저 저장한 후 수정해주세요.');
-                return;
-            }
-            
-            // 로컬 DB에서 경기 정보 가져오기
-            const response = await CONFIG.api.get(`/football-matches/${localId}`);
-            const match = response.data.data;
-            
-            document.getElementById('modalTitle').textContent = '경기 수정';
-            this.editingMatchId = localId;
-            
-            // 폼에 기존 데이터 채우기
-            document.getElementById('homeTeamName').value = match.home?.name || '';
-            document.getElementById('awayTeamName').value = match.away?.name || '';
-            document.getElementById('leagueName').value = match.league?.name || '';
-            document.getElementById('matchTime').value = match.time || '';
-            document.getElementById('matchStatus').value = match.time_status || '0';
-            document.getElementById('matchScore').value = match.ss || '';
-            document.getElementById('adminNote').value = match.adminNote || '';
-            document.getElementById('allowSync').checked = match.allowSync !== false;
-            
-            this.showModal();
-        } catch (error) {
-            console.error('❌ 경기 정보 로드 실패:', error);
-            
-            let errorMessage = '경기 정보를 불러올 수 없습니다.';
-            if (error.response?.status === 404) {
-                errorMessage = '경기를 찾을 수 없습니다.';
-            } else if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            }
-            
-            Utils.showError(errorMessage);
         }
     },
 
@@ -524,50 +586,56 @@ const FootballSchedule = {
         }
         
         try {
+            console.log(`🗑️ 경기 삭제 요청: ${localId}`);
             const response = await CONFIG.api.delete(`/football-matches/${localId}`);
             
-            if (response.data.success) {
+            if (response.data.success || response.status === 200) {
                 Utils.showSuccess('경기가 삭제되었습니다.');
                 await this.loadMatches();
             }
         } catch (error) {
-            console.error('경기 삭제 실패:', error);
-            Utils.showError('경기 삭제에 실패했습니다.');
+            console.error('❌ 경기 삭제 실패:', error);
+            Utils.showError('경기 삭제에 실패했습니다: ' + (error.response?.data?.message || error.message));
         }
     },
 
     // BetsAPI 경기를 로컬에 저장
     async saveToLocal(betsApiId) {
         try {
+            console.log(`💾 로컬 저장 요청: ${betsApiId}`);
             const response = await CONFIG.api.get(`/enhanced-football/match/${betsApiId}`);
             const match = response.data.data;
             
             const saveData = {
                 betsApiId: match.id,
-                sport_id: match.sport_id,
+                sport_id: match.sport_id || '1',
                 time: match.time,
                 time_status: match.time_status,
                 league: match.league,
                 home: match.home,
                 away: match.away,
+                o_home: match.o_home,
+                o_away: match.o_away,
                 ss: match.ss,
                 scores: match.scores,
                 timer: match.timer,
+                stats: match.stats,
                 bet365_id: match.bet365_id,
                 round: match.round,
                 status: 'active',
                 allowSync: true,
+                dataSource: 'manual_save',
             };
             
             const saveResponse = await CONFIG.api.post('/football-matches', saveData);
             
-            if (saveResponse.data.success) {
-                Utils.showSuccess('경기가 저장되었습니다.');
+            if (saveResponse.data.success || saveResponse.status === 201) {
+                Utils.showSuccess('경기가 로컬에 저장되었습니다.');
                 await this.loadMatches();
             }
         } catch (error) {
-            console.error('로컬 저장 실패:', error);
-            Utils.showError('경기 저장에 실패했습니다.');
+            console.error('❌ 로컬 저장 실패:', error);
+            Utils.showError('경기 저장에 실패했습니다: ' + (error.response?.data?.message || error.message));
         }
     },
 
